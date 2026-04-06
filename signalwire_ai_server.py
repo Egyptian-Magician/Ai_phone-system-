@@ -52,6 +52,10 @@ app = Flask(__name__)
 AUDIO_DIR = Path(tempfile.gettempdir()) / "signalwire_audio"
 AUDIO_DIR.mkdir(exist_ok=True)
 
+# Conversation memory storage (stores conversation history per call)
+# Format: {call_sid: [{"role": "user", "content": "..."}, {"role": "assistant", "content": "..."}]}
+conversation_memory = {}
+
 @app.route("/")
 def home():
     """Server status page"""
@@ -254,8 +258,8 @@ def gather():
     print(f"🗣️  User said: '{user_speech}' (confidence: {confidence})")
     
     if user_speech:
-        # Generate AI response
-        ai_response = generate_ai_response(user_speech)
+        # Generate AI response with conversation memory
+        ai_response = generate_ai_response(user_speech, call_sid=call_sid)
         print(f"🤖 AI response: {ai_response}")
         
         # Check if call should end
@@ -284,6 +288,12 @@ def gather():
             
             # End the call
             response.hangup()
+            
+            # Clean up conversation memory for this call
+            if call_sid in conversation_memory:
+                del conversation_memory[call_sid]
+                print(f"🗑️  Cleared conversation memory for call {call_sid}")
+            
             return Response(str(response), mimetype="text/xml")
         
         # Generate voice with ElevenLabs for continuing conversation
@@ -352,44 +362,79 @@ def serve_audio(filename):
         print(f"Error serving audio: {e}")
         return "Error serving audio", 500
 
-def generate_ai_response(user_input, conversation_history=None):
+def generate_ai_response(user_input, call_sid=None):
     """
-    Generate intelligent AI response using Claude (Anthropic)
+    Generate intelligent AI response using Claude (Anthropic) with conversation memory
     Falls back to simple responses if API fails
     """
     # Try to use Claude for intelligent responses
     try:
         anthropic_api_key = os.getenv("ANTHROPIC_API_KEY")
         if anthropic_api_key:
-            # Initialize Anthropic client without any extra parameters
-            # to avoid proxy configuration issues
+            # Initialize Anthropic client
             import anthropic
             client = anthropic.Anthropic(
                 api_key=anthropic_api_key
             )
             
-            # Build system prompt
-            system_prompt = """You are a helpful, friendly AI phone assistant. 
-            Keep responses VERY concise - maximum 2-3 sentences since this is a phone call.
-            Be conversational, warm, and natural.
-            If asked about yourself, say you're an AI assistant powered by SignalWire, Claude, and ElevenLabs.
-            Always be helpful and professional."""
+            # Build system prompt for natural conversation
+            system_prompt = """You are a helpful, friendly AI phone receptionist. 
+
+CONVERSATION STYLE:
+- Speak naturally like a real person having a phone conversation
+- Keep responses SHORT (1-2 sentences maximum) - this is a phone call!
+- Remember what was said earlier in the conversation
+- Ask follow-up questions when appropriate
+- Be warm, professional, and helpful
+
+CAPABILITIES:
+- Answer questions about the business
+- Take messages if needed
+- Provide information
+- Have natural back-and-forth conversations
+
+If asked about yourself, say you're an AI assistant powered by SignalWire, Claude, and ElevenLabs."""
             
-            # Get Claude response
+            # Get or create conversation history for this call
+            if call_sid and call_sid not in conversation_memory:
+                conversation_memory[call_sid] = []
+            
+            # Build messages array with conversation history
+            messages = []
+            
+            # Add conversation history if it exists
+            if call_sid and call_sid in conversation_memory:
+                messages.extend(conversation_memory[call_sid])
+            
+            # Add current user message
+            messages.append({
+                "role": "user",
+                "content": user_input
+            })
+            
+            # Get Claude response with full conversation context
             response = client.messages.create(
                 model="claude-3-haiku-20240307",  # Fast and affordable!
                 max_tokens=150,
                 system=system_prompt,
-                messages=[
-                    {
-                        "role": "user",
-                        "content": user_input
-                    }
-                ]
+                messages=messages
             )
             
             ai_response = response.content[0].text
+            
+            # Store this exchange in conversation memory
+            if call_sid:
+                conversation_memory[call_sid].append({
+                    "role": "user",
+                    "content": user_input
+                })
+                conversation_memory[call_sid].append({
+                    "role": "assistant",
+                    "content": ai_response
+                })
+            
             print(f"🤖 Claude response: {ai_response}")
+            print(f"💬 Conversation turns for {call_sid}: {len(conversation_memory.get(call_sid, []))//2}")
             return ai_response
             
     except Exception as e:
