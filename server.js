@@ -205,7 +205,7 @@ app.get('*', (req, res) => {
 // Start server
 const PORT = process.env.PORT || 10000;
 app.listen(PORT, '0.0.0.0', () => {
-  console.log(`🚀 Web Softphone running on port ${PORT}`);
+  console.log(`🚀 AI Phone Sytsem running on port ${PORT}`);
   console.log(`📱 Frontend: http://localhost:${PORT}`);
   console.log(`🔌 API: http://localhost:${PORT}/api`);
   console.log(`💚 Health: http://localhost:${PORT}/health`);
