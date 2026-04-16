@@ -1,4 +1,4 @@
-# 📞 Web Softphone - AI Executive Assistant
+# 📞 AI Phone System - AI Executive Assistant
 
 A professional web-based softphone interface integrated with Twilio and ElevenLabs AI. Make and receive calls directly from your browser - no app store approval needed!
 
