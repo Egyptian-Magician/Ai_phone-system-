@@ -1,4 +1,4 @@
-// backend/server.js - WEB SOFTPHONE FOR RENDER.COM
+// backend/server.js - AI Phone System FOR RENDER.COM
 const express = require('express');
 const twilio = require('twilio');
 const cors = require('cors');
