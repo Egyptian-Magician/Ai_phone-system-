@@ -1,5 +1,5 @@
 {
-  "name": "web-softphone",
+  "name": "AI Phone System",
   "version": "1.0.0",
   "description": "Web-based softphone with AI executive assistant integration",
   "main": "server.js",
