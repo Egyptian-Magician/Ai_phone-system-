@@ -1,7 +1,7 @@
 ﻿{
   "name": "ai-phone-system",
-  "version": "3.0.0",
-  "description": "Angelina AI Phone System - Twilio + ElevenLabs + Claude",
+  "version": "4.0.0",
+  "description": "Angelina AI Phone System - Security Hardened",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"
@@ -14,6 +14,8 @@
     "dotenv": "^16.4.5",
     "elevenlabs": "^1.59.0",
     "express": "^4.19.2",
+    "express-rate-limit": "^7.4.0",
+    "helmet": "^7.1.0",
     "twilio": "^5.3.4"
   }
 }
