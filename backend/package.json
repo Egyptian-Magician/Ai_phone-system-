@@ -1,7 +1,7 @@
 ﻿{
   "name": "ai-phone-system",
-  "version": "4.0.0",
-  "description": "Angelina AI Phone System - Security Hardened",
+  "version": "5.0.0",
+  "description": "Angelina AI Phone System - Clean Audio v5",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"
