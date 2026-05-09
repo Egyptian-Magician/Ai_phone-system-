@@ -425,7 +425,16 @@ app.post('/call-status', validateTwilioSignature, (req, res) => {
 
 // â”€â”€ Start â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 const PORT = process.env.PORT || 3000;
+// DISCORD PROXY ENDPOINT
+app.post('/discord-notify', async (req, res) => {
+  ... all the proxy code ...
+});
+// END DISCORD PROXY
+
+server.listen(PORT, () => {   // ← this line was already there
+
 server.listen(PORT, '0.0.0.0', () => {
   console.log('Angelina v5 online on port ' + PORT);
   console.log('Health: ' + process.env.SERVER_URL + '/health');
+  
 });
