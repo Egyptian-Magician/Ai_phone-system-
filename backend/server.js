@@ -1,4 +1,4 @@
-﻿require('dotenv').config();
+require('dotenv').config();
 const express        = require('express');
 const twilio         = require('twilio');
 const Anthropic      = require('@anthropic-ai/sdk');
@@ -425,16 +425,44 @@ app.post('/call-status', validateTwilioSignature, (req, res) => {
 
 // â”€â”€ Start â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 const PORT = process.env.PORT || 3000;
+
 // DISCORD PROXY ENDPOINT
 app.post('/discord-notify', async (req, res) => {
-  ... all the proxy code ...
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  const { message, channel_id, token } = req.body;
+  if (!message || !channel_id || !token) {
+    return res.status(400).json({ ok: false, error: 'Missing fields' });
+  }
+  try {
+    const fetch = (await import('node-fetch')).default;
+    const url = 'https://discord.com/api/v10/channels/' + channel_id + '/messages';
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bot ' + token
+      },
+      body: JSON.stringify({ content: message })
+    });
+    const data = await response.json();
+    if (response.ok) { return res.json({ ok: true }); }
+    return res.status(400).json({ ok: false, error: data.message });
+  } catch (err) {
+    return res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+app.options('/discord-notify', (req, res) => {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  res.sendStatus(200);
 });
 // END DISCORD PROXY
-
-server.listen(PORT, () => {   // ← this line was already there
 
 server.listen(PORT, '0.0.0.0', () => {
   console.log('Angelina v5 online on port ' + PORT);
   console.log('Health: ' + process.env.SERVER_URL + '/health');
-  
 });
