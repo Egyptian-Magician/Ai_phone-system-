@@ -10,7 +10,7 @@ const http           = require('http');
 const app    = express();
 const server = http.createServer(app);
 
-// â”€â”€ Security â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// â"€â"€ Security â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
 app.use(helmet());
 app.set('trust proxy', 1);
 
@@ -30,12 +30,12 @@ app.use(globalLimiter);
 app.use(express.json({ limit: '10kb' }));
 app.use(express.urlencoded({ extended: false, limit: '10kb' }));
 
-// â”€â”€ Clients â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// â"€â"€ Clients â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
 const anthropic     = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 const elevenlabs    = new ElevenLabsClient({ apiKey: process.env.ELEVENLABS_API_KEY });
 const VoiceResponse = twilio.twiml.VoiceResponse;
 
-// â”€â”€ In-memory stores â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// â"€â"€ In-memory stores â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
 const conversations = new Map();
 const audioCache    = new Map();
 const callLog       = new Map();
@@ -43,12 +43,12 @@ const blacklist     = new Set();
 const honeypotCalls = new Set();
 const pendingReplies = new Map();
 
-// â”€â”€ Known scam numbers (add as you discover them) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// â"€â"€ Known scam numbers (add as you discover them) â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
 const SCAM_NUMBERS = new Set([
   '+18005551234',
 ]);
 
-// â”€â”€ Security helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// â"€â"€ Security helpers â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
 function isSuspicious(phoneNumber) {
   if (!phoneNumber) return false;
   if (blacklist.has(phoneNumber)) return true;
@@ -85,7 +85,7 @@ function sanitizeInput(text) {
     .trim();
 }
 
-// â”€â”€ ElevenLabs - generate audio, serve via cache â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// â"€â"€ ElevenLabs - generate audio, serve via cache â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
 // Audio is cached and served from our server so Twilio can
 // fetch it as a simple MP3 URL - most reliable method
 async function generateAudio(text, cacheKey) {
@@ -120,7 +120,7 @@ async function generateAudio(text, cacheKey) {
   return process.env.SERVER_URL + '/audio/' + cacheKey;
 }
 
-// â”€â”€ Serve cached audio â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// â"€â"€ Serve cached audio â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
 app.get('/audio/:key', (req, res) => {
   const audio = audioCache.get(req.params.key);
   if (!audio) return res.status(404).send('Audio not found');
@@ -129,7 +129,7 @@ app.get('/audio/:key', (req, res) => {
   res.send(audio);
 });
 
-// â”€â”€ Prompts â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// â"€â"€ Prompts â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
 const GREETING_TEXT = "Hey! Thanks for calling, this is Angelina. What can I help you with today?";
 
 const HONEYPOT_LINES = [
@@ -168,7 +168,7 @@ FLOW:
 - Offer to transfer or take a message if they need a human
 - Close warmly: "Is there anything else I can help you with?"`;
 
-// â”€â”€ Health check â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// â"€â"€ Health check â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
 app.get('/health', (req, res) => {
   res.json({
     status: 'ok',
@@ -186,7 +186,7 @@ app.get('/', (req, res) => {
   res.send('<html><body style="font-family:sans-serif;padding:40px;background:#111;color:#fff"><h1>Angelina v5</h1><p>Online and secured.</p><a href="/health" style="color:#0af">Health Check</a></body></html>');
 });
 
-// â”€â”€ Inbound call â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// â"€â"€ Inbound call â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
 app.post('/voice', callLimiter, validateTwilioSignature, async (req, res) => {
   const callSid   = req.body.CallSid;
   const callerNum = req.body.From || 'unknown';
@@ -251,7 +251,7 @@ app.post('/voice', callLimiter, validateTwilioSignature, async (req, res) => {
   res.send(twiml.toString());
 });
 
-// â”€â”€ Honeypot â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// â"€â"€ Honeypot â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
 app.post('/honeypot', validateTwilioSignature, (req, res) => {
   const callSid = req.query.callSid || req.body.CallSid;
   const twiml   = new VoiceResponse();
@@ -264,7 +264,7 @@ app.post('/honeypot', validateTwilioSignature, (req, res) => {
   res.send(twiml.toString());
 });
 
-// â”€â”€ Main AI response â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// â"€â"€ Main AI response â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
 app.post('/respond', validateTwilioSignature, async (req, res) => {
   const callSid    = req.query.callSid || req.body.CallSid;
   const rawSpeech  = req.body.SpeechResult || '';
@@ -396,7 +396,7 @@ app.post('/respond', validateTwilioSignature, async (req, res) => {
 });
 
 // ── ElevenLabs retry ─────────────────────────────────────────────────────────
-// Twilio redirects here after playing “One moment.” — retries ElevenLabs once,
+// Twilio redirects here after playing "One moment." — retries ElevenLabs once,
 // falls back to Polly only if the retry also fails.
 app.post('/respond-retry', validateTwilioSignature, async (req, res) => {
   const callSid = req.query.callSid || req.body.CallSid;
@@ -418,7 +418,7 @@ app.post('/respond-retry', validateTwilioSignature, async (req, res) => {
 
   if (!text) {
     console.error('[ELEVENLABS-RETRY] ' + ts + ' No pending reply found for key=' + key);
-    gather.say({ voice: 'Polly.Joanna-Neural' }, “Sorry, something went wrong. Could you repeat that?”);
+    gather.say({ voice: 'Polly.Joanna-Neural' }, "Sorry, something went wrong. Could you repeat that?");
     res.type('text/xml');
     return res.send(twiml.toString());
   }
@@ -436,7 +436,7 @@ app.post('/respond-retry', validateTwilioSignature, async (req, res) => {
   res.send(twiml.toString());
 });
 
-// â”€â”€ Admin: Blacklist â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// â"€â"€ Admin: Blacklist â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
 app.post('/blacklist/add', (req, res) => {
   if (req.headers['x-admin-secret'] !== process.env.ADMIN_SECRET) return res.status(403).send('Forbidden');
   const { number } = req.body;
@@ -451,13 +451,13 @@ app.get('/blacklist', (req, res) => {
   res.json({ blacklist: Array.from(blacklist), total: blacklist.size });
 });
 
-// â”€â”€ Admin: Call log â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// â"€â"€ Admin: Call log â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
 app.get('/calls', (req, res) => {
   if (req.headers['x-admin-secret'] !== process.env.ADMIN_SECRET) return res.status(403).send('Forbidden');
   res.json({ calls: Array.from(callLog.entries()), total: callLog.size });
 });
 
-// â”€â”€ Call status callback â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// â"€â"€ Call status callback â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
 app.post('/call-status', validateTwilioSignature, (req, res) => {
   const { CallSid, CallStatus, CallDuration } = req.body;
   const wasHoneypot = honeypotCalls.has(CallSid);
@@ -469,7 +469,7 @@ app.post('/call-status', validateTwilioSignature, (req, res) => {
   res.sendStatus(200);
 });
 
-// â”€â”€ Start â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// â"€â"€ Start â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
 const PORT = process.env.PORT || 3000;
 
 // DISCORD PROXY ENDPOINT
