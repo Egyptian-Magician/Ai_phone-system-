@@ -41,6 +41,7 @@ const audioCache    = new Map();
 const callLog       = new Map();
 const blacklist     = new Set();
 const honeypotCalls = new Set();
+const pendingReplies = new Map();
 
 // â”€â”€ Known scam numbers (add as you discover them) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 const SCAM_NUMBERS = new Set([
@@ -129,7 +130,7 @@ app.get('/audio/:key', (req, res) => {
 });
 
 // â”€â”€ Prompts â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-const GREETING_TEXT = "Hey there! Thanks for calling. This is Angelina, your personal AI Executive Assistant. What can I do for you today?";
+const GREETING_TEXT = "Hey! Thanks for calling, this is Angelina. What can I help you with today?";
 
 const HONEYPOT_LINES = [
   "Oh sure, let me pull that up for you right now. One moment please.",
@@ -354,7 +355,15 @@ app.post('/respond', validateTwilioSignature, async (req, res) => {
       audioUrl = await generateAudio(assistantText, audioKey);
       console.log('[AUDIO] Ready: ' + audioKey);
     } catch (elErr) {
-      console.error('[ELEVENLABS] Failed, using Polly:', elErr.message);
+      const ts = new Date().toISOString();
+      console.error('[ELEVENLABS] ' + ts + ' callSid=' + callSid + ' first attempt failed: ' + elErr.message);
+      const retryKey = callSid + '-' + Date.now();
+      pendingReplies.set(retryKey, assistantText);
+      setTimeout(() => pendingReplies.delete(retryKey), 60000);
+      twiml.say({ voice: 'Polly.Joanna-Neural' }, 'One moment.');
+      twiml.redirect({ method: 'POST' }, '/respond-retry?callSid=' + callSid + '&key=' + retryKey);
+      res.type('text/xml');
+      return res.send(twiml.toString());
     }
 
     // Respond to caller
@@ -368,11 +377,7 @@ app.post('/respond', validateTwilioSignature, async (req, res) => {
       language:    'en-US',
     });
 
-    if (audioUrl) {
-      gather.play(audioUrl);
-    } else {
-      gather.say({ voice: 'Polly.Joanna-Neural' }, assistantText);
-    }
+    gather.play(audioUrl);
 
   } catch (err) {
     console.error('[ERROR] Claude failed:', err.message);
@@ -384,6 +389,47 @@ app.post('/respond', validateTwilioSignature, async (req, res) => {
       speechModel: 'phone_call',
     });
     gather.say({ voice: 'Polly.Joanna-Neural' }, "I'm sorry, I had a little trouble there. Could you say that again?");
+  }
+
+  res.type('text/xml');
+  res.send(twiml.toString());
+});
+
+// ── ElevenLabs retry ─────────────────────────────────────────────────────────
+// Twilio redirects here after playing “One moment.” — retries ElevenLabs once,
+// falls back to Polly only if the retry also fails.
+app.post('/respond-retry', validateTwilioSignature, async (req, res) => {
+  const callSid = req.query.callSid || req.body.CallSid;
+  const key     = req.query.key;
+  const ts      = new Date().toISOString();
+  const text    = pendingReplies.get(key);
+  pendingReplies.delete(key);
+
+  const twiml  = new VoiceResponse();
+  const gather = twiml.gather({
+    input:       'speech',
+    action:      '/respond?callSid=' + callSid,
+    method:      'POST',
+    speechTimeout: '2',
+    speechModel: 'phone_call',
+    enhanced:    'true',
+    language:    'en-US',
+  });
+
+  if (!text) {
+    console.error('[ELEVENLABS-RETRY] ' + ts + ' No pending reply found for key=' + key);
+    gather.say({ voice: 'Polly.Joanna-Neural' }, “Sorry, something went wrong. Could you repeat that?”);
+    res.type('text/xml');
+    return res.send(twiml.toString());
+  }
+
+  try {
+    const audioUrl = await generateAudio(text, callSid + '-retry-' + Date.now());
+    console.log('[ELEVENLABS-RETRY] ' + ts + ' callSid=' + callSid + ' retry succeeded');
+    gather.play(audioUrl);
+  } catch (retryErr) {
+    console.error('[ELEVENLABS-RETRY] ' + ts + ' callSid=' + callSid + ' retry also failed: ' + retryErr.message);
+    gather.say({ voice: 'Polly.Joanna-Neural' }, text);
   }
 
   res.type('text/xml');
@@ -466,3 +512,4 @@ server.listen(PORT, '0.0.0.0', () => {
   console.log('Angelina v5 online on port ' + PORT);
   console.log('Health: ' + process.env.SERVER_URL + '/health');
 });
+
