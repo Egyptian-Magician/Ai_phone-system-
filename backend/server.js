@@ -166,7 +166,56 @@ SECURITY:
 
 FLOW:
 - Offer to transfer or take a message if they need a human
-- Close warmly: "Is there anything else I can help you with?"`;
+- Close warmly: "Is there anything else I can help you with?"
+
+TOOLS:
+- send_sms: Text a phone number the caller explicitly gives you.
+- send_email: Email an address the caller explicitly gives you.
+Only use a tool after the caller confirms what to send and gives their contact info.
+Never guess or invent phone numbers or email addresses.`;
+
+// Tool calling configuration
+const TOOLS_API_URL = process.env.TOOLS_API_URL || 'https://angelina-tools-api.onrender.com';
+
+const TOOLS = [
+  {
+    name: 'send_sms',
+    description: 'Send a text message to a phone number the caller explicitly provided.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        to:      { type: 'string', description: 'Phone number in E.164 format, e.g. +16195551234' },
+        message: { type: 'string', description: 'Text message body (under 160 characters)' },
+      },
+      required: ['to', 'message'],
+    },
+  },
+  {
+    name: 'send_email',
+    description: 'Send an email to an address the caller explicitly provided.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        to:      { type: 'string', description: 'Recipient email address' },
+        subject: { type: 'string', description: 'Email subject line' },
+        body:    { type: 'string', description: 'Email body text' },
+      },
+      required: ['to', 'subject', 'body'],
+    },
+  },
+];
+
+async function callTool(toolName, toolInput) {
+  const fetch = (await import('node-fetch')).default;
+  const endpoint = toolName.replace(/_/g, '-');
+  const resp = await fetch(TOOLS_API_URL + '/tools/' + endpoint, {
+    method:  'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body:    JSON.stringify(toolInput),
+  });
+  if (!resp.ok) throw new Error('Tool ' + toolName + ' HTTP ' + resp.status);
+  return resp.json();
+}
 
 // â"€â"€ Health check â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
 app.get('/health', (req, res) => {
@@ -329,15 +378,42 @@ app.post('/respond', validateTwilioSignature, async (req, res) => {
   history.push({ role: 'user', content: userSpeech });
 
   try {
-    // Get Claude response
-    const claudeResp = await anthropic.messages.create({
+    // Get Claude response (tool-aware)
+    let claudeResp = await anthropic.messages.create({
       model:      'claude-haiku-4-5-20251001',
-      max_tokens: 120,
+      max_tokens: 300,
       system:     SYSTEM_PROMPT,
       messages:   history,
+      tools:      TOOLS,
     });
 
-    const assistantText = claudeResp.content[0].text
+    // Handle tool_use stop
+    if (claudeResp.stop_reason === 'tool_use') {
+      const toolBlock = claudeResp.content.find(b => b.type === 'tool_use');
+      history.push({ role: 'assistant', content: claudeResp.content });
+      let toolResult = 'Done.';
+      try {
+        const result = await callTool(toolBlock.name, toolBlock.input);
+        toolResult = result.message || result.status || 'Done.';
+        console.log('[TOOL] ' + toolBlock.name + ' => ' + toolResult);
+      } catch (toolErr) {
+        toolResult = 'There was a problem sending that.';
+        console.error('[TOOL] ' + toolBlock.name + ' failed: ' + toolErr.message);
+      }
+      history.push({
+        role: 'user',
+        content: [{ type: 'tool_result', tool_use_id: toolBlock.id, content: toolResult }],
+      });
+      claudeResp = await anthropic.messages.create({
+        model:      'claude-haiku-4-5-20251001',
+        max_tokens: 120,
+        system:     SYSTEM_PROMPT,
+        messages:   history,
+      });
+    }
+
+    const textBlock = claudeResp.content.find(b => b.type === 'text') || claudeResp.content[0];
+    const assistantText = (textBlock.text || '')
       .replace(/\*\*/g, '')
       .replace(/\*/g, '')
       .replace(/\n+/g, ' ')
