@@ -368,3 +368,168 @@ window.addEventListener('beforeunload', () => {
 console.log('📱 Web Softphone initialized');
 console.log('🌐 API URL:', API_URL);
 console.log('✅ Ready for login');
+
+// ── Caller Triage (authorized OSINT) ─────────────────────────────
+const triageBtn = document.getElementById('triageBtn');
+const triageNumber = document.getElementById('triageNumber');
+const triageEmail = document.getElementById('triageEmail');
+const triageHandle = document.getElementById('triageHandle');
+const triageAuthorized = document.getElementById('triageAuthorized');
+const triageError = document.getElementById('triageError');
+const triageResults = document.getElementById('triageResults');
+
+if (triageBtn) {
+  triageBtn.addEventListener('click', runTriage);
+}
+
+function esc(s) {
+  return String(s == null ? '' : s).replace(/[&<>"']/g, (c) => (
+    { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]
+  ));
+}
+
+function yn(v) {
+  if (v === true) return '<span class="pill pill-bad">yes</span>';
+  if (v === false) return '<span class="pill pill-good">no</span>';
+  return '<span class="pill pill-neutral">unknown</span>';
+}
+
+function row(label, valueHtml) {
+  return `<div class="triage-row"><span class="label">${esc(label)}</span>` +
+         `<span class="value">${valueHtml}</span></div>`;
+}
+
+async function runTriage() {
+  triageError.textContent = '';
+  triageResults.innerHTML = '';
+
+  const number = triageNumber.value.trim();
+  if (!number) {
+    triageError.textContent = 'Enter a phone number.';
+    return;
+  }
+  if (!triageAuthorized.checked) {
+    triageError.textContent = 'Please confirm you are authorized to look this up.';
+    return;
+  }
+
+  triageBtn.disabled = true;
+  triageBtn.textContent = 'Running…';
+  try {
+    const resp = await fetch(`${API_URL}/api/triage`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        number,
+        email: triageEmail.value.trim() || undefined,
+        handle: triageHandle.value.trim() || undefined,
+        authorized: true,
+      }),
+    });
+    const data = await resp.json();
+    if (!resp.ok || !data.success) {
+      triageError.textContent = data.error || `Request failed (${resp.status}).`;
+      return;
+    }
+    renderTriage(data.report);
+  } catch (err) {
+    triageError.textContent = 'Network error: ' + err.message;
+  } finally {
+    triageBtn.disabled = false;
+    triageBtn.textContent = 'Run triage';
+  }
+}
+
+function renderTriage(r) {
+  const parts = [];
+  const v = r.validation || {};
+
+  // Number card
+  let numCard = `<div class="triage-card"><h4>📱 Number</h4>`;
+  numCard += row('Valid', yn(v.valid));
+  if (v.valid) {
+    numCard += row('Number', esc(v.national || v.e164));
+    numCard += row('Region', esc(v.region || 'n/a'));
+    numCard += row('Line type', esc(v.lineType || 'unknown'));
+    numCard += row('VoIP / Google Voice (hint)', yn(v.voipOrGoogleVoiceHint));
+  } else {
+    numCard += row('Error', esc(v.error || 'could not parse'));
+  }
+  numCard += `</div>`;
+  parts.push(numCard);
+
+  // Live lookup card
+  const live = r.liveLookup && r.liveLookup.verdict;
+  if (live) {
+    let c = `<div class="triage-card"><h4>🌐 Live carrier lookup</h4>`;
+    c += row('Line type', esc(live.lineType || 'n/a'));
+    c += row('Carrier', esc(live.carrier || 'n/a'));
+    c += row('Is VoIP', yn(live.isVoip));
+    c += row('Is Google Voice', yn(live.isGoogleVoice));
+    const tw = r.liveLookup.twilio || {};
+    if (tw.callerName) c += row('Caller name (CNAM)', esc(tw.callerName));
+    if (tw.status && tw.status !== 'ok') c += row('Twilio', esc(tw.status + (tw.reason ? ': ' + tw.reason : '')));
+    c += `</div>`;
+    parts.push(c);
+  }
+
+  // Reputation card
+  const sp = r.phoneReputation;
+  if (sp) {
+    let c = `<div class="triage-card"><h4>🚨 Spam / fraud reputation</h4>`;
+    if (sp.status === 'ok') {
+      c += row('Fraud score', `${esc(sp.fraudScore)} / 100`);
+      c += row('Flagged spammer', yn(sp.spammer));
+      c += row('Recent abuse', yn(sp.recentAbuse));
+      c += row('Risky', yn(sp.risky));
+    } else {
+      c += row('Status', esc(sp.status + (sp.reason ? ': ' + sp.reason : '')));
+    }
+    c += `</div>`;
+    parts.push(c);
+  }
+
+  // Identifier card
+  const id = r.identifier;
+  if (id) {
+    let c = `<div class="triage-card"><h4>📧 Identifier abuse signals</h4>`;
+    c += row('Target', esc(id.target));
+    const rep = id.emailReputation || {};
+    if (rep.status === 'ok') {
+      c += row('Email fraud score', `${esc(rep.fraudScore)} / 100`);
+      c += row('Disposable', yn(rep.disposable));
+      c += row('Recent abuse', yn(rep.recentAbuse));
+    }
+    const br = id.breaches || {};
+    if (br.status === 'ok') {
+      c += row('Breach appearances', `<span class="pill ${br.breachCount ? 'pill-bad' : 'pill-good'}">${esc(br.breachCount)}</span>`);
+      if (br.breaches && br.breaches.length) {
+        c += row('Breaches', esc(br.breaches.slice(0, 12).join(', ')));
+      }
+    }
+    const st = id.static || {};
+    if (st.status === 'ok') c += row('Likely disposable domain', yn(st.likelyDisposable));
+    c += `</div>`;
+    parts.push(c);
+  }
+
+  // Username presence card
+  const up = r.usernamePresence;
+  if (up && up.status === 'ok') {
+    let c = `<div class="triage-card"><h4>👤 Username presence: ${esc(up.username)}</h4>`;
+    c += row('Found', `<span class="pill pill-warn">${esc(up.foundCount)}</span>`);
+    c += row('Absent', esc(up.absentCount));
+    c += row('Unknown / blocked', esc(up.unknownCount));
+    if (up.found && up.found.length) {
+      c += `<ul class="triage-found-list">`;
+      up.found.forEach((f) => {
+        c += `<li>✅ <a href="${esc(f.url)}" target="_blank" rel="noopener noreferrer">${esc(f.site)}</a></li>`;
+      });
+      c += `</ul>`;
+    }
+    c += `</div>`;
+    parts.push(c);
+  }
+
+  triageResults.innerHTML = parts.join('');
+}
