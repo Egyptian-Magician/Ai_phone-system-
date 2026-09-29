@@ -35,6 +35,13 @@ const anthropic     = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 const elevenlabs    = new ElevenLabsClient({ apiKey: process.env.ELEVENLABS_API_KEY });
 const VoiceResponse = twilio.twiml.VoiceResponse;
 
+// Twilio REST client for Lookup (carrier / line-type / CNAM). Only built when
+// credentials exist; triage falls back to other providers otherwise.
+const lookupClient = (process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN)
+  ? twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN)
+  : null;
+const { triage: runTriage, NotAuthorizedError } = require('./triage');
+
 // â"€â"€ In-memory stores â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
 const conversations = new Map();
 const audioCache    = new Map();
@@ -531,6 +538,36 @@ app.get('/blacklist', (req, res) => {
 app.get('/calls', (req, res) => {
   if (req.headers['x-admin-secret'] !== process.env.ADMIN_SECRET) return res.status(403).send('Forbidden');
   res.json({ calls: Array.from(callLog.entries()), total: callLog.size });
+});
+
+// â"€â"€ Admin: Caller triage (authorized OSINT) â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
+// Line-type / Google-Voice detection, spam reputation, and abuse signals for
+// an email/username. Admin-only; must assert authorized:true. Use on numbers
+// directed at this system, numbers you own, or a scoped investigation.
+app.post('/triage', async (req, res) => {
+  if (req.headers['x-admin-secret'] !== process.env.ADMIN_SECRET) return res.status(403).send('Forbidden');
+  const { number, email, handle, region, authorized } = req.body || {};
+  if (!number) return res.status(400).json({ error: 'number required' });
+  try {
+    const report = await runTriage({
+      number,
+      email: email || null,
+      handle: handle || null,
+      region: region || 'US',
+      authorized: authorized === true,
+      twilioClient: lookupClient,
+    });
+    // Convenience: is this caller already flagged by this system?
+    report.knownToSystem = {
+      blacklisted: report.validation.e164 ? blacklist.has(report.validation.e164) : false,
+      knownScamNumber: report.validation.e164 ? SCAM_NUMBERS.has(report.validation.e164) : false,
+    };
+    res.json({ success: true, report });
+  } catch (err) {
+    if (err instanceof NotAuthorizedError) return res.status(403).json({ success: false, error: err.message });
+    console.error('[TRIAGE] ' + err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
 });
 
 // â"€â"€ Call status callback â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
