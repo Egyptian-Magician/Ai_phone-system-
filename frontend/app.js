@@ -369,7 +369,9 @@ console.log('📱 Web Softphone initialized');
 console.log('🌐 API URL:', API_URL);
 console.log('✅ Ready for login');
 
+
 // ── Caller Triage (authorized OSINT) ─────────────────────────────
+const triageForm = document.getElementById('triageForm');
 const triageBtn = document.getElementById('triageBtn');
 const triageNumber = document.getElementById('triageNumber');
 const triageEmail = document.getElementById('triageEmail');
@@ -378,8 +380,11 @@ const triageAuthorized = document.getElementById('triageAuthorized');
 const triageError = document.getElementById('triageError');
 const triageResults = document.getElementById('triageResults');
 
-if (triageBtn) {
-  triageBtn.addEventListener('click', runTriage);
+if (triageForm) {
+  triageForm.addEventListener('submit', (e) => {
+    e.preventDefault();
+    runTriage();
+  });
 }
 
 function esc(s) {
@@ -414,7 +419,7 @@ async function runTriage() {
   }
 
   triageBtn.disabled = true;
-  triageBtn.textContent = 'Running…';
+  triageBtn.classList.add('is-loading');
   try {
     const resp = await fetch(`${API_URL}/api/triage`, {
       method: 'POST',
@@ -436,12 +441,78 @@ async function runTriage() {
     triageError.textContent = 'Network error: ' + err.message;
   } finally {
     triageBtn.disabled = false;
-    triageBtn.textContent = 'Run triage';
+    triageBtn.classList.remove('is-loading');
   }
 }
 
+// Derive an at-a-glance risk score (0-100) from the signals that are actually
+// present. Returns null when no reputation data was available (keys skipped).
+function computeRisk(r) {
+  const reasons = [];
+  let score = 0;
+  let haveData = false;
+
+  if (r.knownToSystem) {
+    haveData = true;
+    if (r.knownToSystem.blacklisted) { score = Math.max(score, 100); reasons.push('already blacklisted'); }
+    if (r.knownToSystem.knownScamNumber) { score = Math.max(score, 100); reasons.push('known scam number'); }
+  }
+
+  const sp = r.phoneReputation;
+  if (sp && sp.status === 'ok') {
+    haveData = true;
+    if (typeof sp.fraudScore === 'number') score = Math.max(score, sp.fraudScore);
+    if (sp.spammer) { score = Math.max(score, 90); reasons.push('flagged spammer'); }
+    if (sp.recentAbuse) { score = Math.max(score, 80); reasons.push('recent abuse'); }
+  }
+
+  const id = r.identifier || {};
+  const br = id.breaches;
+  if (br && br.status === 'ok') {
+    haveData = true;
+    if (br.breachCount > 0) { score = Math.max(score, 40); reasons.push(`${br.breachCount} breach${br.breachCount > 1 ? 'es' : ''}`); }
+  }
+  const em = id.emailReputation;
+  if (em && em.status === 'ok') {
+    haveData = true;
+    if (typeof em.fraudScore === 'number') score = Math.max(score, Math.min(em.fraudScore, 75));
+    if (em.recentAbuse) { score = Math.max(score, 70); reasons.push('email abuse'); }
+  }
+
+  if (!haveData) return null;
+
+  let level = 'low';
+  if (score >= 70) level = 'high';
+  else if (score >= 35) level = 'medium';
+  return { score: Math.round(score), level, reasons };
+}
+
+function renderRiskBanner(r) {
+  const risk = computeRisk(r);
+  if (!risk) {
+    return `<div class="risk-banner risk-none">
+      <div class="risk-score"><span class="num">—</span></div>
+      <div class="risk-text">
+        <h4>No reputation data</h4>
+        <p>Line type and validation are shown below. Add IPQualityScore / HIBP API keys for spam &amp; breach scoring.</p>
+      </div>
+    </div>`;
+  }
+  const labels = { low: 'Low risk', medium: 'Medium risk', high: 'High risk' };
+  const blurb = risk.reasons.length
+    ? risk.reasons.join(' · ')
+    : 'No strong abuse signals detected.';
+  return `<div class="risk-banner risk-${risk.level}">
+    <div class="risk-score"><span class="num">${risk.score}</span><span class="max">/ 100</span></div>
+    <div class="risk-text">
+      <h4>${labels[risk.level]}</h4>
+      <p>${esc(blurb)}</p>
+    </div>
+  </div>`;
+}
+
 function renderTriage(r) {
-  const parts = [];
+  const cards = [];
   const v = r.validation || {};
 
   // Number card
@@ -451,48 +522,48 @@ function renderTriage(r) {
     numCard += row('Number', esc(v.national || v.e164));
     numCard += row('Region', esc(v.region || 'n/a'));
     numCard += row('Line type', esc(v.lineType || 'unknown'));
-    numCard += row('VoIP / Google Voice (hint)', yn(v.voipOrGoogleVoiceHint));
+    numCard += row('VoIP / Google Voice', yn(v.voipOrGoogleVoiceHint));
   } else {
     numCard += row('Error', esc(v.error || 'could not parse'));
   }
   numCard += `</div>`;
-  parts.push(numCard);
+  cards.push(numCard);
 
   // Live lookup card
   const live = r.liveLookup && r.liveLookup.verdict;
   if (live) {
-    let c = `<div class="triage-card"><h4>🌐 Live carrier lookup</h4>`;
+    let c = `<div class="triage-card"><h4>🌐 Carrier</h4>`;
     c += row('Line type', esc(live.lineType || 'n/a'));
     c += row('Carrier', esc(live.carrier || 'n/a'));
     c += row('Is VoIP', yn(live.isVoip));
     c += row('Is Google Voice', yn(live.isGoogleVoice));
     const tw = r.liveLookup.twilio || {};
     if (tw.callerName) c += row('Caller name (CNAM)', esc(tw.callerName));
-    if (tw.status && tw.status !== 'ok') c += row('Twilio', esc(tw.status + (tw.reason ? ': ' + tw.reason : '')));
+    if (tw.status && tw.status !== 'ok') c += row('Twilio', `<span class="pill pill-neutral">${esc(tw.status)}</span>`);
     c += `</div>`;
-    parts.push(c);
+    cards.push(c);
   }
 
   // Reputation card
   const sp = r.phoneReputation;
   if (sp) {
-    let c = `<div class="triage-card"><h4>🚨 Spam / fraud reputation</h4>`;
+    let c = `<div class="triage-card"><h4>🚨 Spam / fraud</h4>`;
     if (sp.status === 'ok') {
       c += row('Fraud score', `${esc(sp.fraudScore)} / 100`);
       c += row('Flagged spammer', yn(sp.spammer));
       c += row('Recent abuse', yn(sp.recentAbuse));
       c += row('Risky', yn(sp.risky));
     } else {
-      c += row('Status', esc(sp.status + (sp.reason ? ': ' + sp.reason : '')));
+      c += row('Status', `<span class="pill pill-neutral">${esc(sp.status)}</span>`);
     }
     c += `</div>`;
-    parts.push(c);
+    cards.push(c);
   }
 
   // Identifier card
   const id = r.identifier;
   if (id) {
-    let c = `<div class="triage-card"><h4>📧 Identifier abuse signals</h4>`;
+    let c = `<div class="triage-card"><h4>📧 Identifier</h4>`;
     c += row('Target', esc(id.target));
     const rep = id.emailReputation || {};
     if (rep.status === 'ok') {
@@ -510,26 +581,27 @@ function renderTriage(r) {
     const st = id.static || {};
     if (st.status === 'ok') c += row('Likely disposable domain', yn(st.likelyDisposable));
     c += `</div>`;
-    parts.push(c);
+    cards.push(c);
   }
 
   // Username presence card
   const up = r.usernamePresence;
   if (up && up.status === 'ok') {
-    let c = `<div class="triage-card"><h4>👤 Username presence: ${esc(up.username)}</h4>`;
+    let c = `<div class="triage-card"><h4>👤 Username: ${esc(up.username)}</h4>`;
     c += row('Found', `<span class="pill pill-warn">${esc(up.foundCount)}</span>`);
     c += row('Absent', esc(up.absentCount));
     c += row('Unknown / blocked', esc(up.unknownCount));
     if (up.found && up.found.length) {
       c += `<ul class="triage-found-list">`;
       up.found.forEach((f) => {
-        c += `<li>✅ <a href="${esc(f.url)}" target="_blank" rel="noopener noreferrer">${esc(f.site)}</a></li>`;
+        c += `<li><a href="${esc(f.url)}" target="_blank" rel="noopener noreferrer">${esc(f.site)}</a></li>`;
       });
       c += `</ul>`;
     }
     c += `</div>`;
-    parts.push(c);
+    cards.push(c);
   }
 
-  triageResults.innerHTML = parts.join('');
+  triageResults.innerHTML =
+    renderRiskBanner(r) + `<div class="triage-grid">${cards.join('')}</div>`;
 }

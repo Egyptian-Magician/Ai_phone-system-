@@ -109,31 +109,54 @@
         </div>
 
         <!-- Caller Triage Section (authorized OSINT) -->
-        <div class="triage-section">
-            <div class="section-header">
-                <h3>🛡️ Caller Triage</h3>
+        <section class="triage-section">
+            <div class="triage-head">
+                <div class="triage-head-left">
+                    <span class="triage-icon">🛡️</span>
+                    <div>
+                        <h3>Caller Triage</h3>
+                        <p class="triage-sub">Line type, spam reputation &amp; abuse signals</p>
+                    </div>
+                </div>
                 <span class="triage-badge">Authorized use only</span>
             </div>
-            <p class="triage-help">
-                Screen a caller for line type (incl. Google Voice), spam/fraud
-                reputation, and abuse signals. Use only on numbers you own, a
-                scoped engagement, or abuse directed at you.
-            </p>
 
-            <div class="triage-form">
-                <input type="tel" id="triageNumber" class="phone-input" placeholder="Phone number, e.g. +18585551234">
-                <input type="email" id="triageEmail" class="phone-input" placeholder="Associated email (optional)">
-                <input type="text" id="triageHandle" class="phone-input" placeholder="Associated username (optional)">
-                <label class="triage-consent">
-                    <input type="checkbox" id="triageAuthorized">
-                    I am authorized to look up this number/identifier.
-                </label>
-                <button id="triageBtn" class="btn-primary">Run triage</button>
-                <p class="error-message" id="triageError"></p>
+            <div class="triage-notice">
+                <span class="triage-notice-icon">ℹ️</span>
+                <p>Use only on numbers you own, a scoped engagement, or abuse directed at you.</p>
             </div>
 
-            <div id="triageResults" class="triage-results"></div>
-        </div>
+            <form class="triage-form" id="triageForm" autocomplete="off">
+                <div class="triage-fields">
+                    <div class="field">
+                        <label for="triageNumber">Phone number</label>
+                        <input type="tel" id="triageNumber" class="triage-input" placeholder="+1 858 555 1234">
+                    </div>
+                    <div class="field">
+                        <label for="triageEmail">Email <span class="opt">optional</span></label>
+                        <input type="email" id="triageEmail" class="triage-input" placeholder="name@example.com">
+                    </div>
+                    <div class="field">
+                        <label for="triageHandle">Username <span class="opt">optional</span></label>
+                        <input type="text" id="triageHandle" class="triage-input" placeholder="handle">
+                    </div>
+                </div>
+
+                <label class="triage-consent">
+                    <input type="checkbox" id="triageAuthorized">
+                    <span>I am authorized to look up this number and any identifiers entered.</span>
+                </label>
+
+                <div class="triage-actions">
+                    <button type="submit" id="triageBtn" class="btn-primary btn-triage">
+                        <span class="btn-label">Run triage</span>
+                    </button>
+                    <p class="error-message" id="triageError"></p>
+                </div>
+            </form>
+
+            <div id="triageResults" class="triage-results" aria-live="polite"></div>
+        </section>
     </div>
 
     <!-- Twilio Client SDK -->
