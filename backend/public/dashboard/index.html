@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Call Shield</title>
+  <meta name="description" content="Screen and block spam calls to your Angelina number.">
+  <meta name="theme-color" content="#5b5fd6">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="icon-192.png">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="Call Shield">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <!-- Sign in -->
+  <main id="loginView" class="login" hidden>
+    <div class="login-card">
+      <img src="icon.svg" alt="" class="login-icon" width="64" height="64">
+      <h1>Call Shield</h1>
+      <p class="muted">Enter your admin secret to manage call screening.</p>
+      <form id="loginForm">
+        <label for="secretInput">Admin secret</label>
+        <input id="secretInput" type="password" autocomplete="current-password" required>
+        <label class="check"><input id="rememberInput" type="checkbox" checked> Remember on this device</label>
+        <button type="submit" class="btn btn-primary">Sign in</button>
+        <p id="loginError" class="error" role="alert"></p>
+      </form>
+    </div>
+  </main>
+
+  <!-- App -->
+  <div id="appView" hidden>
+    <header class="topbar">
+      <div class="brand">
+        <img src="icon.svg" alt="" width="28" height="28">
+        <span>Call Shield</span>
+      </div>
+      <div class="topbar-actions">
+        <span id="statusPill" class="pill"></span>
+        <button id="refreshBtn" class="btn btn-ghost" type="button" aria-label="Refresh">Refresh</button>
+        <button id="logoutBtn" class="btn btn-ghost" type="button">Sign out</button>
+      </div>
+    </header>
+
+    <main class="content">
+      <p id="disabledNote" class="banner" hidden>
+        Screening is <strong>off</strong>. Calls are not being screened until you set
+        <code>SCREENING_ENABLED=true</code> on the server. You can still manage lists and test numbers.
+      </p>
+
+      <section class="tiles" aria-label="Last 200 calls">
+        <div class="tile"><span class="tile-num" id="statTotal">0</span><span class="tile-label">Screened</span></div>
+        <div class="tile tile-good"><span class="tile-num" id="statAllow">0</span><span class="tile-label">Allowed</span></div>
+        <div class="tile tile-warn"><span class="tile-num" id="statVoicemail">0</span><span class="tile-label">Voicemail</span></div>
+        <div class="tile tile-bad"><span class="tile-num" id="statBlocked">0</span><span class="tile-label">Blocked</span></div>
+      </section>
+
+      <section class="card">
+        <h2>Check a number</h2>
+        <form id="checkForm" class="row">
+          <input id="checkInput" type="tel" placeholder="+1 858 555 1234" required>
+          <button type="submit" class="btn btn-primary" id="checkBtn">Check</button>
+        </form>
+        <div id="checkResult" aria-live="polite"></div>
+      </section>
+
+      <section class="card">
+        <div class="card-head">
+          <h2>Recent calls</h2>
+          <span class="muted small" id="updatedAt"></span>
+        </div>
+        <ul id="callList" class="calls"></ul>
+        <p id="callsEmpty" class="muted empty" hidden>No calls screened yet.</p>
+      </section>
+
+      <section class="card">
+        <h2>Settings</h2>
+        <div class="field">
+          <span class="field-label">Strictness</span>
+          <div class="segmented" id="strictness" role="radiogroup" aria-label="Strictness">
+            <button type="button" data-value="relaxed" role="radio">Relaxed</button>
+            <button type="button" data-value="balanced" role="radio">Balanced</button>
+            <button type="button" data-value="strict" role="radio">Strict</button>
+          </div>
+          <p class="muted small" id="strictnessHelp"></p>
+        </div>
+        <div class="field">
+          <label class="field-label" for="anonymousAction">Hidden caller ID</label>
+          <select id="anonymousAction">
+            <option value="allow">Let through</option>
+            <option value="voicemail">Send to voicemail</option>
+            <option value="block">Block</option>
+          </select>
+        </div>
+        <div class="field">
+          <label class="field-label" for="blacklistAction">Numbers on your blocklist</label>
+          <select id="blacklistAction">
+            <option value="honeypot">Honeypot (waste their time)</option>
+            <option value="block">Block</option>
+            <option value="voicemail">Send to voicemail</option>
+          </select>
+        </div>
+        <p id="settingsMsg" class="muted small" aria-live="polite"></p>
+      </section>
+
+      <section class="card">
+        <h2>Your lists</h2>
+        <form id="listForm" class="row">
+          <input id="listInput" type="tel" placeholder="Phone number" required>
+          <button type="submit" class="btn btn-good" data-list="allow">Allow</button>
+          <button type="submit" class="btn btn-bad" data-list="block">Block</button>
+        </form>
+        <p id="listMsg" class="error" role="alert"></p>
+        <div class="lists">
+          <div>
+            <h3>Always allow</h3>
+            <ul id="allowList" class="numbers"></ul>
+          </div>
+          <div>
+            <h3>Always block</h3>
+            <ul id="blockList" class="numbers"></ul>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>

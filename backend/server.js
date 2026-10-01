@@ -41,6 +41,11 @@ const lookupClient = (process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_
   ? twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN)
   : null;
 const { triage: runTriage, NotAuthorizedError } = require('./triage');
+const path = require('path');
+const { createScreener } = require('./screening/screen');
+const { createStore, parseNumberList } = require('./screening/store');
+const { applyDecision } = require('./screening/twiml');
+const { createScreeningRouter, secretMatches } = require('./routes/screening');
 
 // â"€â"€ In-memory stores â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
 const conversations = new Map();
@@ -56,6 +61,18 @@ const SCAM_NUMBERS = new Set([
 ]);
 
 // â"€â"€ Security helpers â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
+// â"€â"€ Call screening (off unless SCREENING_ENABLED=true) â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
+const screeningStore = createStore();
+const screener = createScreener({
+  triage: runTriage,
+  lookupClient,
+  budgetMs: Number(process.env.SCREEN_BUDGET_MS) || undefined,
+});
+const screeningEnabled = () => String(process.env.SCREENING_ENABLED).toLowerCase() === 'true';
+// Lists are in memory; seed them from env so they survive restarts.
+parseNumberList(process.env.SCREENING_ALLOWLIST).forEach((n) => screeningStore.allowlist.add(n));
+parseNumberList(process.env.SCREENING_BLOCKLIST).forEach((n) => blacklist.add(n));
+
 function isSuspicious(phoneNumber) {
   if (!phoneNumber) return false;
   if (blacklist.has(phoneNumber)) return true;
@@ -259,8 +276,28 @@ app.post('/voice', callLimiter, validateTwilioSignature, async (req, res) => {
 
   const twiml = new VoiceResponse();
 
+  // Screen the caller before Angelina picks up.
+  let sendToHoneypot = isSuspicious(callerNum);
+  if (screeningEnabled()) {
+    const decision = await screener.screen({
+      from: callerNum,
+      stirVerstat: req.body.StirVerstat,
+      lists: { allowlist: screeningStore.allowlist, blacklist, scamNumbers: SCAM_NUMBERS },
+      settings: screeningStore.settings,
+    });
+    callLog.get(callSid).screening = decision;
+    screeningStore.record({ callSid, number: decision.number, action: decision.action, score: decision.score, reasons: decision.reasons, source: decision.source });
+    console.log('[SCREEN] ' + callerNum + ' -> ' + decision.action + ' (score ' + decision.score + ', ' + decision.source + ')');
+
+    if (applyDecision(twiml, decision)) {
+      res.type('text/xml');
+      return res.send(twiml.toString());
+    }
+    sendToHoneypot = decision.action === 'honeypot';
+  }
+
   // Route suspicious numbers to honeypot
-  if (isSuspicious(callerNum)) {
+  if (sendToHoneypot) {
     console.warn('[HONEYPOT] Routing to trap: ' + callerNum);
     honeypotCalls.add(callSid);
     callLog.get(callSid).honeypot = true;
@@ -521,7 +558,7 @@ app.post('/respond-retry', validateTwilioSignature, async (req, res) => {
 
 // â"€â"€ Admin: Blacklist â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
 app.post('/blacklist/add', (req, res) => {
-  if (req.headers['x-admin-secret'] !== process.env.ADMIN_SECRET) return res.status(403).send('Forbidden');
+  if (!secretMatches(req.headers['x-admin-secret'], process.env.ADMIN_SECRET)) return res.status(403).send('Forbidden');
   const { number } = req.body;
   if (!number) return res.status(400).json({ error: 'Number required' });
   blacklist.add(number);
@@ -530,13 +567,13 @@ app.post('/blacklist/add', (req, res) => {
 });
 
 app.get('/blacklist', (req, res) => {
-  if (req.headers['x-admin-secret'] !== process.env.ADMIN_SECRET) return res.status(403).send('Forbidden');
+  if (!secretMatches(req.headers['x-admin-secret'], process.env.ADMIN_SECRET)) return res.status(403).send('Forbidden');
   res.json({ blacklist: Array.from(blacklist), total: blacklist.size });
 });
 
 // â"€â"€ Admin: Call log â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
 app.get('/calls', (req, res) => {
-  if (req.headers['x-admin-secret'] !== process.env.ADMIN_SECRET) return res.status(403).send('Forbidden');
+  if (!secretMatches(req.headers['x-admin-secret'], process.env.ADMIN_SECRET)) return res.status(403).send('Forbidden');
   res.json({ calls: Array.from(callLog.entries()), total: callLog.size });
 });
 
@@ -545,7 +582,7 @@ app.get('/calls', (req, res) => {
 // an email/username. Admin-only; must assert authorized:true. Use on numbers
 // directed at this system, numbers you own, or a scoped investigation.
 app.post('/triage', async (req, res) => {
-  if (req.headers['x-admin-secret'] !== process.env.ADMIN_SECRET) return res.status(403).send('Forbidden');
+  if (!secretMatches(req.headers['x-admin-secret'], process.env.ADMIN_SECRET)) return res.status(403).send('Forbidden');
   const { number, email, handle, region, authorized } = req.body || {};
   if (!number) return res.status(400).json({ error: 'number required' });
   try {
@@ -569,6 +606,16 @@ app.post('/triage', async (req, res) => {
     res.status(500).json({ success: false, error: err.message });
   }
 });
+
+// â"€â"€ Call screening dashboard + admin API â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
+app.use('/screening', createScreeningRouter({
+  store: screeningStore,
+  blacklist,
+  scamNumbers: SCAM_NUMBERS,
+  screener,
+  screeningEnabled,
+}));
+app.use('/dashboard', express.static(path.join(__dirname, 'public', 'dashboard')));
 
 // â"€â"€ Call status callback â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
 app.post('/call-status', validateTwilioSignature, (req, res) => {
