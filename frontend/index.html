@@ -107,6 +107,56 @@
                 </div>
             </div>
         </div>
+
+        <!-- Caller Triage Section (authorized OSINT) -->
+        <section class="triage-section">
+            <div class="triage-head">
+                <div class="triage-head-left">
+                    <span class="triage-icon">🛡️</span>
+                    <div>
+                        <h3>Caller Triage</h3>
+                        <p class="triage-sub">Line type, spam reputation &amp; abuse signals</p>
+                    </div>
+                </div>
+                <span class="triage-badge">Authorized use only</span>
+            </div>
+
+            <div class="triage-notice">
+                <span class="triage-notice-icon">ℹ️</span>
+                <p>Use only on numbers you own, a scoped engagement, or abuse directed at you.</p>
+            </div>
+
+            <form class="triage-form" id="triageForm" autocomplete="off">
+                <div class="triage-fields">
+                    <div class="field">
+                        <label for="triageNumber">Phone number</label>
+                        <input type="tel" id="triageNumber" class="triage-input" placeholder="+1 858 555 1234">
+                    </div>
+                    <div class="field">
+                        <label for="triageEmail">Email <span class="opt">optional</span></label>
+                        <input type="email" id="triageEmail" class="triage-input" placeholder="name@example.com">
+                    </div>
+                    <div class="field">
+                        <label for="triageHandle">Username <span class="opt">optional</span></label>
+                        <input type="text" id="triageHandle" class="triage-input" placeholder="handle">
+                    </div>
+                </div>
+
+                <label class="triage-consent">
+                    <input type="checkbox" id="triageAuthorized">
+                    <span>I am authorized to look up this number and any identifiers entered.</span>
+                </label>
+
+                <div class="triage-actions">
+                    <button type="submit" id="triageBtn" class="btn-primary btn-triage">
+                        <span class="btn-label">Run triage</span>
+                    </button>
+                    <p class="error-message" id="triageError"></p>
+                </div>
+            </form>
+
+            <div id="triageResults" class="triage-results" aria-live="polite"></div>
+        </section>
     </div>
 
     <!-- Twilio Client SDK -->

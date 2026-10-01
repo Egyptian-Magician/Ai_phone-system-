@@ -592,3 +592,313 @@ button:disabled {
         padding: 30px 25px;
     }
 }
+
+/* ── Caller Triage ──────────────────────────────────────────────── */
+.triage-section {
+    grid-column: 1 / -1;
+    background: white;
+    border-radius: 20px;
+    padding: 30px;
+    box-shadow: var(--shadow);
+}
+
+.triage-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 16px;
+    margin-bottom: 20px;
+}
+
+.triage-head-left {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+}
+
+.triage-icon {
+    font-size: 30px;
+    line-height: 1;
+    background: var(--light-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    padding: 10px;
+}
+
+.triage-head h3 {
+    font-size: 20px;
+    color: #333;
+    margin: 0;
+}
+
+.triage-sub {
+    color: var(--muted-color);
+    font-size: 0.86rem;
+    margin: 2px 0 0;
+}
+
+.triage-badge {
+    background: #fff3cd;
+    color: #856404;
+    font-size: 0.68rem;
+    font-weight: 700;
+    padding: 6px 12px;
+    border-radius: 20px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    white-space: nowrap;
+}
+
+.triage-notice {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: rgba(102, 126, 234, 0.07);
+    border: 1px solid rgba(102, 126, 234, 0.2);
+    border-radius: 12px;
+    padding: 12px 16px;
+    margin-bottom: 24px;
+}
+
+.triage-notice-icon { font-size: 1rem; }
+
+.triage-notice p {
+    color: #4a4a68;
+    font-size: 0.85rem;
+    margin: 0;
+}
+
+/* Form */
+.triage-fields {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+}
+
+@media (max-width: 720px) {
+    .triage-fields { grid-template-columns: 1fr; }
+}
+
+.field {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.field label {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: #555;
+}
+
+.field label .opt {
+    font-weight: 400;
+    color: var(--muted-color);
+    font-size: 0.72rem;
+}
+
+.triage-input {
+    padding: 12px 14px;
+    border: 2px solid var(--border-color);
+    border-radius: 10px;
+    font-size: 0.95rem;
+    transition: all 0.2s;
+    width: 100%;
+}
+
+.triage-input:focus {
+    outline: none;
+    border-color: #667eea;
+    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+.triage-consent {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 0.88rem;
+    color: #444;
+    margin: 20px 0 0;
+    cursor: pointer;
+}
+
+.triage-consent input {
+    width: 18px;
+    height: 18px;
+    accent-color: #667eea;
+    flex-shrink: 0;
+}
+
+.triage-actions {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin-top: 20px;
+}
+
+.btn-triage {
+    min-width: 160px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+}
+
+.btn-triage.is-loading .btn-label::after {
+    content: '';
+    display: inline-block;
+    width: 14px;
+    height: 14px;
+    margin-left: 8px;
+    border: 2px solid rgba(255, 255, 255, 0.5);
+    border-top-color: #fff;
+    border-radius: 50%;
+    vertical-align: -2px;
+    animation: triage-spin 0.7s linear infinite;
+}
+
+@keyframes triage-spin { to { transform: rotate(360deg); } }
+
+.triage-actions .error-message { margin: 0; }
+
+/* Results */
+.triage-results { margin-top: 26px; }
+
+.triage-results:empty { margin-top: 0; }
+
+/* Risk summary banner */
+.risk-banner {
+    display: flex;
+    align-items: center;
+    gap: 18px;
+    border-radius: 16px;
+    padding: 20px 24px;
+    margin-bottom: 22px;
+    color: #fff;
+}
+
+.risk-banner.risk-low    { background: linear-gradient(135deg, #34c759 0%, #28a745 100%); }
+.risk-banner.risk-medium { background: linear-gradient(135deg, #ffb020 0%, #f5a300 100%); }
+.risk-banner.risk-high   { background: linear-gradient(135deg, #ff5f6d 0%, #dc3545 100%); }
+.risk-banner.risk-none   {
+    background: var(--light-bg);
+    color: #444;
+    border: 1px solid var(--border-color);
+}
+
+.risk-score {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-width: 84px;
+    height: 84px;
+    border-radius: 14px;
+    background: rgba(255, 255, 255, 0.22);
+    flex-shrink: 0;
+}
+
+.risk-none .risk-score { background: #fff; border: 1px solid var(--border-color); }
+
+.risk-score .num { font-size: 1.9rem; font-weight: 800; line-height: 1; }
+.risk-score .max { font-size: 0.72rem; opacity: 0.85; margin-top: 2px; }
+
+.risk-text h4 {
+    margin: 0 0 4px;
+    font-size: 1.1rem;
+}
+
+.risk-text p {
+    margin: 0;
+    font-size: 0.86rem;
+    opacity: 0.95;
+}
+
+/* Result cards grid */
+.triage-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 16px;
+}
+
+.triage-card {
+    background: var(--light-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 14px;
+    padding: 18px 20px;
+}
+
+.triage-card h4 {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 0 0 14px;
+    font-size: 0.82rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--muted-color);
+}
+
+.triage-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    padding: 7px 0;
+    font-size: 0.9rem;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+.triage-row:last-child { border-bottom: none; }
+
+.triage-row .label { color: var(--muted-color); }
+
+.triage-row .value {
+    font-weight: 600;
+    text-align: right;
+    color: #333;
+    word-break: break-word;
+}
+
+.pill {
+    display: inline-block;
+    padding: 3px 11px;
+    border-radius: 20px;
+    font-size: 0.76rem;
+    font-weight: 700;
+}
+
+.pill-good    { background: #d4edda; color: #155724; }
+.pill-bad     { background: #f8d7da; color: #721c24; }
+.pill-warn    { background: #fff3cd; color: #856404; }
+.pill-neutral { background: #e9ecef; color: #495057; }
+
+.triage-found-list {
+    list-style: none;
+    padding: 0;
+    margin: 10px 0 0;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.triage-found-list li {
+    font-size: 0.82rem;
+}
+
+.triage-found-list a {
+    display: inline-block;
+    background: #fff;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    padding: 5px 10px;
+    color: #667eea;
+    text-decoration: none;
+    font-weight: 600;
+}
+
+.triage-found-list a:hover {
+    border-color: #667eea;
+    box-shadow: 0 2px 8px rgba(102, 126, 234, 0.15);
+}

@@ -197,6 +197,11 @@ app.get('/api/calls/:identity', async (req, res) => {
   }
 });
 
+// Phone/identifier triage (authorized OSINT). Disabled unless
+// TRIAGE_ENABLED=true; each request must assert authorized:true.
+const createTriageRouter = require('./backend/routes/triage');
+app.use('/api/triage', createTriageRouter(client));
+
 // Serve frontend for all other routes
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, '../frontend/index.html'));
